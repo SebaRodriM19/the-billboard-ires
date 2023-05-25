@@ -1,8 +1,11 @@
 namespace TheBillboard.Data.Gateways;
 
 using Abstract;
+
 using Microsoft.EntityFrameworkCore;
+
 using Models;
+
 using TheBillboard.Data.Data;
 
 public class MessageGateway : IGateway<Message>
@@ -13,16 +16,39 @@ public class MessageGateway : IGateway<Message>
 
     public IEnumerable<Message> GetAll() => _context.Messages
         .Include(m => m.Author);
-    public Message? GetById(int id) => _context.Messages.Find(id);
+    public Message? GetById(int id) => _context.Messages
+        .AsNoTracking()
+        .SingleOrDefault(message => message.Id == id);
+    
     public Message Insert(Message entity)
     {
         var e = _context.Messages.Add(entity);
-        _context.SaveChanges();
 
+        _context.SaveChanges();
+        
+        e.Entity.Author = _context.Authors.AsNoTracking().SingleOrDefault(p => p.Id == entity.AuthorId);
         return e.Entity;
     }
 
-    public void Modify(Message entity) => throw new NotImplementedException();
+    public Message Modify(Message entity)
+    {
+        var current = _context.Messages.AsNoTracking().SingleOrDefault(m => m.Id == entity.Id);
+        
+        _context.Messages.Update(current! with { Title = entity.Title, Body = entity.Body});
+        _context.SaveChanges();
+        
+        var author = _context.Authors.Find(entity.AuthorId);
+        entity.Author = author;
+        
+        return entity;
 
-    public void Delete(int id) => throw new NotImplementedException();
+    }
+
+    public Message Delete(int id)
+    {
+        var message = _context.Messages.AsNoTracking().SingleOrDefault(p => p.Id == id);
+        _context.Remove(message);
+        _context.SaveChanges();
+        return message;
+    }
 }
